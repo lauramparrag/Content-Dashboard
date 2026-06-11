@@ -129,6 +129,7 @@ body{font-family:'Inter',sans-serif;background:var(--blue-wash);color:var(--text
     <div class="card">
       <div class="card-lbl"><div class="acc"></div>Webinars by registrations</div>
       <div id="src-badge-w" style="margin-bottom:10px;"></div>
+      <div id="webinar-src-legend-inline" style="display:none;flex-wrap:wrap;gap:10px;margin-bottom:12px;"></div>
       <div id="webinar-list"></div>
     </div>
     <div class="card">
@@ -139,13 +140,21 @@ body{font-family:'Inter',sans-serif;background:var(--blue-wash);color:var(--text
     </div>
   </div>
 
-  <!-- Guide source pie chart -->
-  <div id="guide-src-pie-wrap" style="margin-bottom:16px;">
-    <div class="card" style="display:grid;grid-template-columns:200px 1fr;gap:28px;align-items:center;">
+  <!-- Source pie charts side by side -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+    <div class="card" style="display:grid;grid-template-columns:160px 1fr;gap:20px;align-items:center;">
       <div>
-        <div class="card-lbl"><div class="acc"></div>Guide sources — total</div>
+        <div class="card-lbl"><div class="acc"></div>Webinar sources</div>
+        <div style="font-size:10px;color:#a0b4c8;font-style:italic;margin-bottom:10px;" id="web-src-pie-note"></div>
+        <div style="position:relative;height:150px;"><canvas id="web-src-chart"></canvas></div>
+      </div>
+      <div id="web-src-pie-legend" style="display:flex;flex-direction:column;gap:10px;"></div>
+    </div>
+    <div class="card" style="display:grid;grid-template-columns:160px 1fr;gap:20px;align-items:center;">
+      <div>
+        <div class="card-lbl"><div class="acc"></div>Guide sources</div>
         <div style="font-size:10px;color:#a0b4c8;font-style:italic;margin-bottom:10px;" id="guide-src-pie-note"></div>
-        <div style="position:relative;height:160px;"><canvas id="guide-src-chart"></canvas></div>
+        <div style="position:relative;height:150px;"><canvas id="guide-src-chart"></canvas></div>
       </div>
       <div id="guide-src-pie-legend" style="display:flex;flex-direction:column;gap:10px;"></div>
     </div>
@@ -199,15 +208,15 @@ var ATT = {
 var PARDOT = {
   total:525, guides_total:201, webinars_total:418,
   webinars:[
-    {name:"A Look Inside the GlobalLink Product Roadmap",total:112},
-    {name:"The 2026 Reality of AI in Global Content",total:98},
-    {name:"Governing AI Quality: How to Move from Output to Outcome",total:58},
-    {name:"When Translation Lives Everywhere",total:45},
-    {name:"The China Website Challenge: Language Considerations",total:44},
-    {name:"The China Website Challenge: Technical Considerations",total:20},
-    {name:"Ask an Expert: AI & Localization Office Hours",total:19},
-    {name:"The China Website Challenge: Office Hours Q&A",total:9},
-    {name:"Intelligent Performance - Client Panel",total:6}
+    {name:"A Look Inside the GlobalLink Product Roadmap",         total:112,src:{email:72, other:40}},
+    {name:"The 2026 Reality of AI in Global Content",              total:98, src:{email:22, other:76}},
+    {name:"Governing AI Quality: How to Move from Output to Outcome",total:58,src:{email:17, other:41}},
+    {name:"When Translation Lives Everywhere",                     total:45, src:{email:15, other:30}},
+    {name:"The China Website Challenge: Language Considerations",  total:44, src:{email:6,  other:38}},
+    {name:"The China Website Challenge: Technical Considerations", total:20, src:{email:6,  other:14}},
+    {name:"Ask an Expert: AI & Localization Office Hours",         total:19, src:{email:13, other:6}},
+    {name:"The China Website Challenge: Office Hours Q&A",         total:9,  src:{email:6,  other:3}},
+    {name:"Intelligent Performance - Client Panel",                total:6,  src:{email:0,  other:6}}
   ],
   guides:[
     {name:"Québec's Bill 96: What It Means for Your Website and Digital Strategy",total:106,src:{linkedin:102,email:2,website:2}},
@@ -277,32 +286,43 @@ var SIGNALS = [
 var activeSrc="all";
 var CHARTS={};
 
+var GUIDE_SRC_COLORS = {linkedin:"#003FC7", email:"#6531CC", website:"#3BBFB5"};
+var GUIDE_SRC_LABELS = {linkedin:"LinkedIn Ad", email:"Email nurture / blast", website:"Direct / Untracked"};
+var WEB_SRC_COLORS   = {email:"#6531CC", other:"#D2E6FA"};
+var WEB_SRC_LABELS   = {email:"Email (blasts)", other:"Other sources"};
+var SRC_COLORS = GUIDE_SRC_COLORS;
+var SRC_LABELS = GUIDE_SRC_LABELS;
+
 function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
 function fmt(n){return n>=1000?(n/1000).toFixed(1)+"k":String(n);}
 
-var SRC_COLORS = {linkedin:"#003FC7", email:"#6531CC", website:"#3BBFB5"};
-var SRC_LABELS = {linkedin:"LinkedIn Ad", email:"Email nurture / blast", website:"Direct / Untracked"};
 
 var PIE_DATA = {
   pardot:  {linkedin:123, email:36, website:47, note:"Pardot 2025/26 · 206 guide interactions"},
   hubspot: {linkedin:52,  email:14, website:36, note:"HubSpot last year · 102 guide interactions"},
   all:     {linkedin:175, email:50, website:83, note:"Both sources combined · 308 guide interactions"}
 };
+var WEB_PIE_DATA = {
+  pardot: {email:145, other:266, note:"Pardot 2025/26 · 411 webinar registrations"},
+  hubspot:{email:0,   other:0,   note:"HubSpot · email attribution not available"},
+  all:    {email:145, other:266, note:"Pardot 2025/26 · email attribution not available for HubSpot"}
+};
 
-function renderAssetList(id,items,color,showAtt,showSrc){
+function renderAssetList(id,items,color,showAtt,showSrc,isWebinar){
   var max=items.length?items[0].total:1;
   document.getElementById(id).innerHTML=items.map(function(d,i){
     var att=showAtt&&ATT[d.name];
     var attHtml=att?'<div class="att-note">'+att.pct+'% show rate ('+att.attended+' of '+att.reg+' attended)</div>':'';
     var barHtml;
     if(showSrc && d.src){
-      // Stacked bar — width based on proportion of max
       var widthPct = Math.round(d.total/max*100);
-      var segs = Object.keys(SRC_COLORS).map(function(k){
+      var colors = isWebinar ? WEB_SRC_COLORS : SRC_COLORS;
+      var labels = isWebinar ? WEB_SRC_LABELS : SRC_LABELS;
+      var segs = Object.keys(colors).map(function(k){
         var n = d.src[k]||0;
         if(!n) return '';
         var segPct = Math.round(n/d.total*100);
-        return '<div title="'+SRC_LABELS[k]+': '+n+'" style="width:'+segPct+'%;height:100%;background:'+SRC_COLORS[k]+';"></div>';
+        return '<div title="'+labels[k]+': '+n+'" style="width:'+segPct+'%;height:100%;background:'+colors[k]+';"></div>';
       }).join('');
       barHtml = '<div style="width:'+widthPct+'%;height:6px;border-radius:3px;overflow:hidden;display:flex;gap:1px;margin-top:6px;">'+segs+'</div>';
     } else {
@@ -366,23 +386,35 @@ function renderAssets(){
   }
   document.getElementById("src-badge-w").innerHTML=wB;
   document.getElementById("src-badge-g").innerHTML=gB;
-  var showSrc = activeSrc!=="all";
-  renderAssetList("webinar-list",wD.slice(0,10),wC,att,false);
-  renderAssetList("guide-list",  gD.slice(0,10),gC,false,showSrc);
-  // Show/hide source legend
+  var showSrc = activeSrc==="pardot";
+  renderAssetList("webinar-list",wD.slice(0,10),wC,att,showSrc,true);
+  renderAssetList("guide-list",  gD.slice(0,10),gC,false,showSrc,false);
+  // Show/hide source legends
   var legEl = document.getElementById("guide-src-legend-inline");
+  var webLegEl = document.getElementById("webinar-src-legend-inline");
   if(legEl){
     legEl.style.display = showSrc ? "flex" : "none";
     if(showSrc){
-      legEl.innerHTML = Object.keys(SRC_COLORS).map(function(k){
+      legEl.innerHTML = Object.keys(GUIDE_SRC_COLORS).map(function(k){
         return '<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--muted);">'
-          +'<span style="width:8px;height:8px;border-radius:2px;background:'+SRC_COLORS[k]+';display:inline-block;"></span>'
-          +SRC_LABELS[k]+'</span>';
+          +'<span style="width:8px;height:8px;border-radius:2px;background:'+GUIDE_SRC_COLORS[k]+';display:inline-block;"></span>'
+          +GUIDE_SRC_LABELS[k]+'</span>';
       }).join("");
     }
   }
-  // Rebuild pie chart with correct data for the active source
+  if(webLegEl){
+    webLegEl.style.display = showSrc ? "flex" : "none";
+    if(showSrc){
+      webLegEl.innerHTML = Object.keys(WEB_SRC_COLORS).map(function(k){
+        return '<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--muted);">'
+          +'<span style="width:8px;height:8px;border-radius:2px;background:'+WEB_SRC_COLORS[k]+';display:inline-block;"></span>'
+          +WEB_SRC_LABELS[k]+'</span>';
+      }).join("");
+    }
+  }
+  // Rebuild pie charts with correct data for the active source
   buildGuideSrcPie();
+  buildWebSrcPie();
 }
 
 function setSrc(src){
@@ -456,6 +488,45 @@ function showTab(id,btn){
 renderKPIs();renderAssets();
 
 
+function buildWebSrcPie(){
+  if(CHARTS.webPie) CHARTS.webPie.destroy();
+  var d = WEB_PIE_DATA[activeSrc] || WEB_PIE_DATA.pardot;
+  var note = document.getElementById("web-src-pie-note");
+  if(note) note.textContent = d.note;
+  if(d.email === 0 && d.other === 0){
+    var leg = document.getElementById("web-src-pie-legend");
+    if(leg) leg.innerHTML = '<div style="font-size:12px;color:#a0b4c8;font-style:italic;">Email attribution not available for HubSpot webinar registrations — contacts came via GoToWebinar integration.</div>';
+    return;
+  }
+  var labels = [WEB_SRC_LABELS.email, WEB_SRC_LABELS.other];
+  var values = [d.email, d.other];
+  var colors = [WEB_SRC_COLORS.email, "#D2E6FA"];
+  var total  = values.reduce(function(a,b){return a+b;},0);
+  CHARTS.webPie = new Chart(document.getElementById("web-src-chart"),{
+    type:"doughnut",
+    data:{labels:labels,datasets:[{data:values,backgroundColor:colors,borderWidth:0}]},
+    options:{
+      responsive:true,maintainAspectRatio:false,cutout:"60%",
+      plugins:{legend:{display:false},tooltip:{...TIP,callbacks:{label:function(c){
+        return " "+c.label+": "+c.parsed+" ("+Math.round(c.parsed/total*100)+"%)";
+      }}}}
+    }
+  });
+  var leg = document.getElementById("web-src-pie-legend");
+  if(leg){
+    leg.innerHTML = labels.map(function(l,i){
+      var v=values[i];
+      return '<div style="display:flex;align-items:center;gap:10px;">'
+        +'<span style="width:10px;height:10px;border-radius:2px;background:'+colors[i]+';flex-shrink:0;"></span>'
+        +'<div>'
+          +'<div style="font-size:12px;font-weight:500;color:var(--text);">'+l+'</div>'
+          +'<div style="font-size:10px;color:#a0b4c8;">'+v+' registrations · '+Math.round(v/total*100)+'%</div>'
+        +'</div>'
+      +'</div>';
+    }).join("");
+  }
+}
+
 function buildGuideSrcPie(){
   if(CHARTS.guidePie) CHARTS.guidePie.destroy();
   var d = PIE_DATA[activeSrc] || PIE_DATA.all;
@@ -489,6 +560,7 @@ function buildGuideSrcPie(){
     }).join("");
   }
 }
+
 </script>
 </body>
 </html>
