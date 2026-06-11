@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>GlobalLink · Content Performance</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --blue-primary:#003FC7;--blue-dark:#03002C;--blue-light:#4D88FF;
+  --blue-pale:#D2E6FA;--blue-wash:#F0F4FA;--teal:#3BBFB5;
+  --purple:#6531CC;--orange:#FA6419;--green:#3EB236;
+  --muted:#5A6A8A;--border:#D2E6FA;--surface:#F0F4FA;
+  --white:#fff;--text:#03002C;
+  --shadow:0 2px 16px rgba(0,63,199,.08);--shadow-h:0 6px 28px rgba(0,63,199,.14);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Inter',sans-serif;background:var(--blue-wash);color:var(--text);min-height:100vh;}
+
+.hdr{background:#03002C;padding:36px 52px 32px;position:relative;overflow:hidden;}
+.hdr::before{content:"";position:absolute;left:-100px;top:-120px;width:500px;height:500px;border-radius:50%;background:radial-gradient(circle at 40% 40%,rgba(140,90,255,.5) 0%,rgba(100,60,220,.25) 45%,transparent 72%);pointer-events:none;}
+.hdr::after{content:"";position:absolute;right:-60px;bottom:-60px;width:340px;height:340px;border-radius:50%;background:radial-gradient(circle at 60% 60%,rgba(161,251,249,.4) 0%,rgba(59,191,181,.18) 50%,transparent 72%);pointer-events:none;}
+.hdr-inner{position:relative;z-index:2;}
+.hdr-badge{display:inline-block;background:rgba(161,251,249,.12);border:1px solid rgba(161,251,249,.28);color:#A1FBF9;font-size:9px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;padding:3px 12px;border-radius:20px;margin-bottom:12px;}
+.hdr-title{font-size:30px;font-weight:800;color:#fff;line-height:1.1;letter-spacing:-.4px;}
+.hdr-title em{font-style:normal;color:#A1FBF9;}
+.hdr-sub{color:rgba(255,255,255,.4);font-size:12px;margin-top:5px;font-weight:300;}
+.hdr-stats{display:flex;gap:28px;margin-top:20px;flex-wrap:wrap;}
+.hs{border-left:2px solid rgba(161,251,249,.3);padding-left:12px;}
+.hs-n{font-size:22px;font-weight:800;color:#fff;}
+.hs-l{font-size:9px;color:rgba(255,255,255,.4);letter-spacing:.5px;margin-top:1px;}
+
+.nav{display:flex;gap:4px;background:#fff;padding:8px 52px;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;box-shadow:0 2px 14px rgba(0,63,199,.07);}
+.nt{padding:8px 20px;border-radius:8px;font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap;color:var(--muted);background:transparent;border:none;font-family:'Inter',sans-serif;transition:all .16s;display:flex;align-items:center;gap:6px;}
+.nt:hover{background:var(--blue-wash);color:var(--blue-primary);}
+.nt.active{background:var(--blue-dark);color:#fff;}
+
+.sec{padding:36px 52px 60px;display:none;}
+.sec.active{display:block;}
+
+.src-bar{display:flex;align-items:center;gap:8px;margin-bottom:28px;background:#fff;border:1.5px solid var(--border);border-radius:12px;padding:12px 18px;box-shadow:var(--shadow);}
+.src-lbl{font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#a0b4c8;}
+.spill{padding:5px 16px;border-radius:999px;font-size:11px;font-weight:500;cursor:pointer;font-family:'Inter',sans-serif;border:1.5px solid var(--border);background:transparent;color:var(--muted);transition:all .16s;}
+.spill:hover{border-color:var(--blue-primary);color:var(--blue-primary);}
+.spill.s-all{background:var(--blue-dark);color:#fff;border-color:var(--blue-dark);}
+.spill.s-par{background:var(--blue-primary);color:#fff;border-color:var(--blue-primary);}
+.spill.s-hs{background:var(--purple);color:#fff;border-color:var(--purple);}
+
+.kpi-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:24px;}
+.kc{background:#fff;border:1.5px solid var(--border);border-radius:14px;padding:18px 20px;position:relative;overflow:hidden;box-shadow:var(--shadow);transition:box-shadow .2s,border-color .2s;}
+.kc:hover{box-shadow:var(--shadow-h);border-color:var(--blue-primary);}
+.kc::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:14px 14px 0 0;}
+.kc-b::before{background:var(--blue-primary);}
+.kc-d::before{background:var(--blue-dark);}
+.kc-t::before{background:var(--teal);}
+.kc-lbl{font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#a0b4c8;margin-bottom:8px;}
+.kc-val{font-size:26px;font-weight:800;color:var(--blue-dark);line-height:1;}
+.kc-sub{font-size:10px;color:#a0b4c8;margin-top:5px;}
+
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;}
+
+.card{background:#fff;border:1.5px solid var(--border);border-radius:14px;padding:20px 18px;box-shadow:var(--shadow);}
+.card-lbl{font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#a0b4c8;margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+.card-lbl .acc{width:3px;height:12px;border-radius:2px;background:linear-gradient(180deg,var(--blue-primary),var(--blue-dark));}
+
+.arow{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:.5px solid var(--blue-wash);}
+.arow:last-child{border-bottom:none;}
+.arank{font-size:11px;color:#a0b4c8;min-width:18px;text-align:right;flex-shrink:0;}
+.atitle-wrap{flex:1;min-width:0;}
+.atitle{font-size:12px;color:var(--muted);line-height:1.35;}
+.att-note{font-size:10px;color:#c0cede;margin-top:2px;}
+.abar-wrap{width:56px;background:var(--blue-wash);border-radius:2px;height:5px;flex-shrink:0;}
+.abar{height:100%;border-radius:2px;}
+.acount{font-size:12px;font-weight:700;color:var(--text);min-width:26px;text-align:right;flex-shrink:0;}
+
+.ybadge{font-size:9px;font-weight:700;padding:2px 8px;border-radius:999px;display:inline-block;margin-bottom:10px;}
+.yb-par{background:#E1F5EE;color:#085041;}
+.yb-hs{background:#EEEDFE;color:#3C3489;}
+.note-small{font-size:10px;color:#a0b4c8;font-style:italic;margin-bottom:12px;}
+
+.footer{text-align:center;color:#a0b4c8;font-size:9px;letter-spacing:1.5px;padding:22px 0 8px;font-weight:600;text-transform:uppercase;}
+
+@media(max-width:860px){
+  .g2,.kpi-row{grid-template-columns:1fr;}
+  .sec,.hdr,.nav{padding-left:20px;padding-right:20px;}
+}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div class="hdr-inner">
+    <div class="hdr-badge">GlobalLink · Content Intelligence</div>
+    <div class="hdr-title">Content <em>Performance</em></div>
+    <div class="hdr-sub">HubSpot (last year) · Pardot 2025/26 · External contacts only, test accounts removed</div>
+    <div class="hdr-stats">
+      <div class="hs"><div class="hs-n">1,543</div><div class="hs-l">Unique contacts HubSpot (last year)</div></div>
+      <div class="hs"><div class="hs-n">525</div><div class="hs-l">Unique contacts Pardot (2025/26)</div></div>
+      <div class="hs"><div class="hs-n">1,950</div><div class="hs-l">Unique contacts total (118 appear in both)</div></div>
+      <div class="hs"><div class="hs-n">27</div><div class="hs-l">Unique assets tracked</div></div>
+    </div>
+  </div>
+</div>
+
+<nav class="nav">
+  <button class="nt active" onclick="showTab('assets',this)">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12h6M9 16h6M9 8h6M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z"/></svg>
+    Assets
+  </button>
+  <button class="nt" onclick="showTab('audience',this)">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+    Audience
+  </button>
+</nav>
+
+<!-- ASSETS -->
+<section class="sec active" id="sec-assets">
+  <div class="src-bar">
+    <span class="src-lbl">Source</span>
+    <button class="spill s-all" id="sp-all" onclick="setSrc('all')">All</button>
+    <button class="spill" id="sp-par"       onclick="setSrc('pardot')">Pardot 2025/26</button>
+    <button class="spill" id="sp-hs"        onclick="setSrc('hubspot')">HubSpot (last year)</button>
+  </div>
+
+  <div class="kpi-row" id="kpi-row"></div>
+
+  <div class="g2">
+    <div class="card">
+      <div class="card-lbl"><div class="acc"></div>Webinars by registrations</div>
+      <div id="src-badge-w" style="margin-bottom:10px;"></div>
+      <div id="webinar-list"></div>
+    </div>
+    <div class="card">
+      <div class="card-lbl"><div class="acc"></div>Guides by downloads</div>
+      <div id="src-badge-g" style="margin-bottom:10px;"></div>
+      <div id="guide-src-legend-inline" style="display:none;flex-wrap:wrap;gap:10px;margin-bottom:12px;"></div>
+      <div id="guide-list"></div>
+    </div>
+  </div>
+
+  <!-- Guide source pie chart -->
+  <div id="guide-src-pie-wrap" style="margin-bottom:16px;">
+    <div class="card" style="display:grid;grid-template-columns:200px 1fr;gap:28px;align-items:center;">
+      <div>
+        <div class="card-lbl"><div class="acc"></div>Guide sources — total</div>
+        <div style="font-size:10px;color:#a0b4c8;font-style:italic;margin-bottom:10px;" id="guide-src-pie-note"></div>
+        <div style="position:relative;height:160px;"><canvas id="guide-src-chart"></canvas></div>
+      </div>
+      <div id="guide-src-pie-legend" style="display:flex;flex-direction:column;gap:10px;"></div>
+    </div>
+  </div>
+
+  <div class="footer">GlobalLink by TransPerfect · Content Performance</div>
+</section>
+
+<!-- AUDIENCE -->
+<section class="sec" id="sec-audience">
+  <div class="g2" style="margin-bottom:16px;">
+    <div class="card">
+      <div class="card-lbl"><div class="acc"></div>Job function — grouped</div>
+      <div class="note-small">Both sources combined · 1,607 of 2,046 contacts categorised (79%)</div>
+      <div id="jobtitle-list"></div>
+    </div>
+    <div class="card">
+      <div class="card-lbl"><div class="acc"></div>Industry</div>
+      <div class="note-small">Both sources combined · 641 contacts with industry data (31% fill rate)</div>
+      <div style="position:relative;height:340px;"><canvas id="ind-chart" role="img" aria-label="Industry bar chart"></canvas></div>
+    </div>
+  </div>
+  <div class="g2" style="margin-bottom:16px;">
+    <div class="card">
+      <div class="card-lbl"><div class="acc"></div>Top countries — Pardot 2025/26</div>
+      <div class="note-small">250 of 619 Pardot contacts have a country on record</div>
+      <div style="position:relative;height:280px;"><canvas id="geo-chart" role="img" aria-label="Top countries bar chart"></canvas></div>
+    </div>
+    <div class="card" style="display:flex;flex-direction:column;justify-content:center;">
+      <div class="card-lbl"><div class="acc"></div>Key audience signals</div>
+      <div id="signals"></div>
+    </div>
+  </div>
+  <div class="footer">GlobalLink by TransPerfect · Content Performance · Audience</div>
+</section>
+
+<script>
+var TEAL="#1D9E75", PURPLE="#7F77DD";
+
+var ATT = {
+  "A Look Inside the GlobalLink Product Roadmap":          {pct:33,attended:37,reg:111},
+  "The 2026 Reality of AI in Global Content":              {pct:26,attended:25,reg:97},
+  "Governing AI Quality: How to Move from Output to Outcome":{pct:14,attended:8,reg:58},
+  "When Translation Lives Everywhere":                     {pct:38,attended:17,reg:45},
+  "The China Website Challenge: Language Considerations":  {pct:16,attended:7,reg:44},
+  "The China Website Challenge: Technical Considerations": {pct:25,attended:5,reg:20},
+  "Ask an Expert: AI & Localization Office Hours":         {pct:21,attended:4,reg:19},
+  "The China Website Challenge: Office Hours Q&A":         {pct:33,attended:3,reg:9}
+};
+
+var PARDOT = {
+  total:525, guides_total:201, webinars_total:418,
+  webinars:[
+    {name:"A Look Inside the GlobalLink Product Roadmap",total:112},
+    {name:"The 2026 Reality of AI in Global Content",total:98},
+    {name:"Governing AI Quality: How to Move from Output to Outcome",total:58},
+    {name:"When Translation Lives Everywhere",total:45},
+    {name:"The China Website Challenge: Language Considerations",total:44},
+    {name:"The China Website Challenge: Technical Considerations",total:20},
+    {name:"Ask an Expert: AI & Localization Office Hours",total:19},
+    {name:"The China Website Challenge: Office Hours Q&A",total:9},
+    {name:"Intelligent Performance - Client Panel",total:6}
+  ],
+  guides:[
+    {name:"Québec's Bill 96: What It Means for Your Website and Digital Strategy",total:106,src:{linkedin:102,email:2,website:2}},
+    {name:"2026 Business Outlook Report: Global Content in the Age of AI",          total:62, src:{linkedin:8,email:24,website:30}},
+    {name:"Website Localization Playbook: A Marketer's Guide to Global Growth",      total:8,  src:{linkedin:6,email:1,website:1}},
+    {name:"Intelligent Performance: The Enterprise Guide to AI-Powered Translation", total:5,  src:{linkedin:2,email:0,website:3}},
+    {name:"AI in Localization: How to Win, Mitigate Risk, and Capture ROI",          total:3,  src:{linkedin:0,email:3,website:0}},
+    {name:"Translation as a Feature (TaaF)",                                         total:3,  src:{linkedin:1,email:1,website:1}},
+    {name:"Adobe Customer Spotlight Booklet",                                         total:2,  src:{linkedin:0,email:0,website:2}}
+  ]
+};
+
+var HUBSPOT = {
+  total_contacts:1543,
+  webinars:[
+    {name:"Québec's Bill 96: Website Compliance",total:402},
+    {name:"Hilton's Playbook for Enterprise AI Adoption",total:346},
+    {name:"Generative AI & the Future of Global Websites",total:161},
+    {name:"Client Panel: Intelligent Performance",total:111},
+    {name:"AI & Website Localization: Wins, Fails, Costly Mistakes",total:108},
+    {name:"Is Translation Dead?",total:91},
+    {name:"Your Website, Their Language: Winning Strategies for 2025",total:88},
+    {name:"The China Website Challenge: Technical Considerations",total:65},
+    {name:"Ask An Expert: AI & Website Localization Q&A",total:64},
+    {name:"Office Hours: From AI to Localization",total:59}
+  ],
+  guides:[
+    {name:"Website Localization Playbook: A Marketer's Guide to Global Growth",      total:39,src:{linkedin:26,email:3,website:10}},
+    {name:"Top 5 GenAI Solutions to Power a High-Performing Global Website",          total:14,src:{linkedin:13,email:0,website:1}},
+    {name:"AI in Localization: How to Win, Mitigate Risk, and Capture ROI",           total:11,src:{linkedin:11,email:0,website:0}},
+    {name:"Intelligent Performance: The Enterprise Guide to AI-Powered Translation",  total:9, src:{linkedin:0,email:3,website:6}},
+    {name:"The Website Localization Buyer's Guide",                                   total:8, src:{linkedin:0,email:2,website:6}},
+    {name:"Québec's Bill 96: What It Means for Your Website and Digital Strategy",    total:5, src:{linkedin:0,email:5,website:0}},
+    {name:"11 Ways GlobalLink Web Simplifies Multilingual Website Management",        total:5, src:{linkedin:0,email:0,website:5}},
+    {name:"A Guide to Taking Your Travel Brand Global",                               total:3, src:{linkedin:0,email:0,website:3}}
+  ]
+};
+
+var JOB_CATS = [
+  ["Manager (Other)",263],["Director",212],["Marketing Manager",146],
+  ["Marketing (Other)",126],["Marketing Director",92],["Translation / Localization",78],
+  ["Project Manager",65],["VP (Other)",60],["Content Manager / Strategist",55],
+  ["Communications",52],["Head of Marketing / Digital",48],["Consultant / Analyst",45],
+  ["Product Manager",41],["Ecommerce",40],["VP Marketing",36],["SEO",32],
+  ["Localization Manager",28],["CEO / President / Founder",23],["Localization Specialist",20]
+];
+
+var INDUSTRY = [
+  ["Manufacturing",113],["Hospitality & Travel",102],["Retail",78],
+  ["Financial Services",45],["Consulting",40],["Advertising / PR",39],
+  ["Pharma / Biotech",33],["Software",33],["Technology",31],["Consumer Goods",30]
+];
+
+var COUNTRIES = [
+  ["United States",176],["Canada",69],["United Kingdom",33],
+  ["Spain",16],["Germany",14],["Netherlands",10],
+  ["Italy",9],["France",8],["South Africa",8],["Australia",7]
+];
+
+var SIGNALS = [
+  {icon:"✦",text:"<strong>Marketing practitioners dominate</strong> — Marketing Manager, Marketing Director, and Head of Marketing/Digital account for 286 contacts across both sources."},
+  {icon:"✦",text:"<strong>Localization & translation professionals</strong> are a distinct segment — 126 contacts across Translation/Localization, Localization Manager, and Localization Specialist."},
+  {icon:"✦",text:"<strong>Director and above</strong> (Director, VP, C-Suite, Heads of) make up roughly <strong>40%</strong> of categorised contacts."},
+  {icon:"✦",text:"<strong>Manufacturing leads on industry</strong> (113 contacts), followed by Hospitality & Travel (102) and Retail (78) — all verticals with high localisation complexity."}
+];
+
+var activeSrc="all";
+var CHARTS={};
+
+function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+function fmt(n){return n>=1000?(n/1000).toFixed(1)+"k":String(n);}
+
+var SRC_COLORS = {linkedin:"#003FC7", email:"#6531CC", website:"#3BBFB5"};
+var SRC_LABELS = {linkedin:"LinkedIn Ad", email:"Email nurture / blast", website:"Direct / Untracked"};
+
+var PIE_DATA = {
+  pardot:  {linkedin:123, email:36, website:47, note:"Pardot 2025/26 · 206 guide interactions"},
+  hubspot: {linkedin:52,  email:14, website:36, note:"HubSpot last year · 102 guide interactions"},
+  all:     {linkedin:175, email:50, website:83, note:"Both sources combined · 308 guide interactions"}
+};
+
+function renderAssetList(id,items,color,showAtt,showSrc){
+  var max=items.length?items[0].total:1;
+  document.getElementById(id).innerHTML=items.map(function(d,i){
+    var att=showAtt&&ATT[d.name];
+    var attHtml=att?'<div class="att-note">'+att.pct+'% show rate ('+att.attended+' of '+att.reg+' attended)</div>':'';
+    var barHtml;
+    if(showSrc && d.src){
+      // Stacked bar — width based on proportion of max
+      var widthPct = Math.round(d.total/max*100);
+      var segs = Object.keys(SRC_COLORS).map(function(k){
+        var n = d.src[k]||0;
+        if(!n) return '';
+        var segPct = Math.round(n/d.total*100);
+        return '<div title="'+SRC_LABELS[k]+': '+n+'" style="width:'+segPct+'%;height:100%;background:'+SRC_COLORS[k]+';"></div>';
+      }).join('');
+      barHtml = '<div style="width:'+widthPct+'%;height:6px;border-radius:3px;overflow:hidden;display:flex;gap:1px;margin-top:6px;">'+segs+'</div>';
+    } else {
+      barHtml = '<div class="abar-wrap" style="margin-top:5px;"><div class="abar" style="width:'+Math.round(d.total/max*100)+'%;background:'+color+';"></div></div>';
+    }
+    return '<div class="arow">'
+      +'<span class="arank">'+(i+1)+'</span>'
+      +'<div class="atitle-wrap">'
+        +'<div class="atitle">'+esc(d.name)+'</div>'
+        +attHtml
+        +barHtml
+      +'</div>'
+      +'<span class="acount">'+d.total+'</span>'
+    +'</div>';
+  }).join("");
+}
+
+function mergeAssets(a,b){
+  var m={};
+  a.forEach(function(d){m[d.name]={name:d.name,total:d.total};});
+  b.forEach(function(d){
+    if(m[d.name])m[d.name].total+=d.total;
+    else m[d.name]={name:d.name,total:d.total};
+  });
+  return Object.values(m).sort(function(a,b){return b.total-a.total;});
+}
+
+function renderKPIs(){
+  var pW=PARDOT.webinars.reduce(function(s,d){return s+d.total;},0);
+  var pG=PARDOT.guides.reduce(function(s,d){return s+d.total;},0);
+  var hW=HUBSPOT.webinars.reduce(function(s,d){return s+d.total;},0);
+  var hG=HUBSPOT.guides.reduce(function(s,d){return s+d.total;},0);
+  var c={
+    all:  {contacts:"1,950 unique",webs:fmt(pW+hW),guis:fmt(pG+hG),sub:"118 contacts appear in both"},
+    pardot:{contacts:fmt(PARDOT.total),webs:fmt(pW),guis:fmt(pG),sub:"Pardot 2025/26"},
+    hubspot:{contacts:fmt(HUBSPOT.total_contacts),webs:fmt(hW),guis:fmt(hG),sub:"HubSpot last year"}
+  }[activeSrc];
+  var cards=[
+    {l:"Total contacts",v:c.contacts,s:c.sub,cl:"kc-b"},
+    {l:"Webinar contacts",v:c.webs,s:"registrations tracked",cl:"kc-d"},
+    {l:"Guide downloads",v:c.guis,s:"unique asset interactions",cl:"kc-t"}
+  ];
+  document.getElementById("kpi-row").innerHTML=cards.map(function(c){
+    return '<div class="kc '+c.cl+'"><div class="kc-lbl">'+c.l+'</div><div class="kc-val">'+c.v+'</div><div class="kc-sub">'+c.s+'</div></div>';
+  }).join("");
+}
+
+function renderAssets(){
+  var wD,gD,wC,gC,wB,gB,att;
+  if(activeSrc==="pardot"){
+    wD=PARDOT.webinars;gD=PARDOT.guides;wC=gC=TEAL;att=true;
+    wB=gB='<span class="ybadge yb-par">2025/26 · Pardot</span>';
+  }else if(activeSrc==="hubspot"){
+    wD=HUBSPOT.webinars;gD=HUBSPOT.guides;wC=gC=PURPLE;att=false;
+    wB=gB='<span class="ybadge yb-hs">Last year · HubSpot</span>';
+  }else{
+    wD=mergeAssets(PARDOT.webinars,HUBSPOT.webinars);
+    gD=mergeAssets(PARDOT.guides,  HUBSPOT.guides);
+    wC=gC=TEAL;att=false;
+    wB=gB='<span class="ybadge yb-par" style="margin-right:4px;">Pardot</span><span class="ybadge yb-hs">HubSpot</span>';
+  }
+  document.getElementById("src-badge-w").innerHTML=wB;
+  document.getElementById("src-badge-g").innerHTML=gB;
+  var showSrc = activeSrc!=="all";
+  renderAssetList("webinar-list",wD.slice(0,10),wC,att,false);
+  renderAssetList("guide-list",  gD.slice(0,10),gC,false,showSrc);
+  // Show/hide source legend
+  var legEl = document.getElementById("guide-src-legend-inline");
+  if(legEl){
+    legEl.style.display = showSrc ? "flex" : "none";
+    if(showSrc){
+      legEl.innerHTML = Object.keys(SRC_COLORS).map(function(k){
+        return '<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--muted);">'
+          +'<span style="width:8px;height:8px;border-radius:2px;background:'+SRC_COLORS[k]+';display:inline-block;"></span>'
+          +SRC_LABELS[k]+'</span>';
+      }).join("");
+    }
+  }
+  // Rebuild pie chart with correct data for the active source
+  buildGuideSrcPie();
+}
+
+function setSrc(src){
+  activeSrc=src;
+  document.getElementById("sp-all").className="spill"+(src==="all"?" s-all":"");
+  document.getElementById("sp-par").className="spill"+(src==="pardot"?" s-par":"");
+  document.getElementById("sp-hs") .className="spill"+(src==="hubspot"?" s-hs":"");
+  renderKPIs();renderAssets();
+}
+
+var TIP={backgroundColor:"#fff",borderColor:"#D2E6FA",borderWidth:1,titleColor:"#a0b4c8",bodyColor:"#03002C",padding:10,cornerRadius:8,titleFont:{size:10},bodyFont:{size:12,weight:"700"}};
+var isDark=matchMedia("(prefers-color-scheme:dark)").matches;
+var gridC=isDark?"rgba(255,255,255,.07)":"rgba(0,0,0,.06)";
+var tickC="#a0b4c8";
+var barBase={responsive:true,maintainAspectRatio:false,indexAxis:"y",
+  plugins:{legend:{display:false},tooltip:{...TIP,callbacks:{label:function(c){return " "+c.parsed.x;}}}},
+  scales:{x:{grid:{color:gridC,drawBorder:false},ticks:{color:tickC,font:{size:10}}},
+          y:{grid:{display:false},ticks:{color:tickC,font:{size:11}}}}};
+
+function buildAudCharts(){
+  if(CHARTS.geo)CHARTS.geo.destroy();
+  if(CHARTS.ind)CHARTS.ind.destroy();
+
+  CHARTS.geo=new Chart(document.getElementById("geo-chart"),{
+    type:"bar",
+    data:{labels:COUNTRIES.map(function(d){return d[0];}),datasets:[{data:COUNTRIES.map(function(d){return d[1];}),backgroundColor:"#7F77DD",borderRadius:3}]},
+    options:barBase
+  });
+
+  CHARTS.ind=new Chart(document.getElementById("ind-chart"),{
+    type:"bar",
+    data:{labels:INDUSTRY.map(function(d){return d[0];}),datasets:[{data:INDUSTRY.map(function(d){return d[1];}),backgroundColor:"#1D9E75",borderRadius:3}]},
+    options:barBase
+  });
+}
+
+function renderJobTitles(){
+  var max=JOB_CATS[0][1];
+  // Merge some for display: show top 12, group rest
+  var display=JOB_CATS.slice(0,14);
+  document.getElementById("jobtitle-list").innerHTML=display.map(function(d,i){
+    return '<div class="arow">'
+      +'<span class="arank">'+(i+1)+'</span>'
+      +'<div class="atitle-wrap">'
+        +'<div class="atitle">'+esc(d[0])+'</div>'
+        +'<div class="abar-wrap" style="margin-top:5px;"><div class="abar" style="width:'+Math.round(d[1]/max*100)+'%;background:#003FC7;"></div></div>'
+      +'</div>'
+      +'<span class="acount">'+d[1]+'</span>'
+    +'</div>';
+  }).join("");
+}
+
+function renderSignals(){
+  document.getElementById("signals").innerHTML=SIGNALS.map(function(s){
+    return '<div style="display:flex;gap:10px;padding:10px 0;border-bottom:.5px solid var(--blue-wash);">'
+      +'<span style="color:var(--blue-primary);font-size:10px;flex-shrink:0;margin-top:1px;">'+s.icon+'</span>'
+      +'<div style="font-size:12px;color:var(--muted);line-height:1.6;">'+s.text+'</div>'
+    +'</div>';
+  }).join("");
+}
+
+function showTab(id,btn){
+  document.querySelectorAll(".sec").forEach(function(s){s.classList.remove("active");});
+  document.querySelectorAll(".nt").forEach(function(t){t.classList.remove("active");});
+  document.getElementById("sec-"+id).classList.add("active");
+  btn.classList.add("active");
+  window.scrollTo({top:0,behavior:"smooth"});
+  if(id==="audience") setTimeout(function(){buildAudCharts();renderJobTitles();renderSignals();},80);
+}
+
+renderKPIs();renderAssets();
+
+
+function buildGuideSrcPie(){
+  if(CHARTS.guidePie) CHARTS.guidePie.destroy();
+  var d = PIE_DATA[activeSrc] || PIE_DATA.all;
+  var labels = Object.keys(SRC_LABELS).map(function(k){return SRC_LABELS[k];});
+  var values = Object.keys(SRC_COLORS).map(function(k){return d[k]||0;});
+  var colors = Object.values(SRC_COLORS);
+  var total  = values.reduce(function(a,b){return a+b;},0);
+  var note = document.getElementById("guide-src-pie-note");
+  if(note) note.textContent = d.note;
+  CHARTS.guidePie = new Chart(document.getElementById("guide-src-chart"),{
+    type:"doughnut",
+    data:{labels:labels,datasets:[{data:values,backgroundColor:colors,borderWidth:0}]},
+    options:{
+      responsive:true,maintainAspectRatio:false,cutout:"60%",
+      plugins:{legend:{display:false},tooltip:{...TIP,callbacks:{label:function(c){
+        return " "+c.label+": "+c.parsed+" ("+Math.round(c.parsed/total*100)+"%)";
+      }}}}
+    }
+  });
+  var leg = document.getElementById("guide-src-pie-legend");
+  if(leg){
+    leg.innerHTML = labels.map(function(l,i){
+      var v=values[i];
+      return '<div style="display:flex;align-items:center;gap:10px;">'
+        +'<span style="width:10px;height:10px;border-radius:2px;background:'+colors[i]+';flex-shrink:0;"></span>'
+        +'<div>'
+          +'<div style="font-size:12px;font-weight:500;color:var(--text);">'+l+'</div>'
+          +'<div style="font-size:10px;color:#a0b4c8;">'+v+' downloads · '+Math.round(v/total*100)+'%</div>'
+        +'</div>'
+      +'</div>';
+    }).join("");
+  }
+}
+</script>
+</body>
+</html>
